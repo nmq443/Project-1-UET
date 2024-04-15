@@ -5,6 +5,8 @@ import settings
 import cv2
 import helper
 import tempfile
+import pytube
+from pytube import YouTube
 
 model_path = '../model/yolov8n.pt'
 
@@ -107,39 +109,80 @@ elif file_types == 'Video':
 
         success = True
 
-        # get vcap property 
-        width  = int(cap.get(3))   # float `width`
-        height = int(cap.get(4))  # float `height`
-
-        fps = int(cap.get(5))
-
-        video = cv2.VideoWriter('predicted_video.mp4', cv2.VideoWriter_fourcc(*'MJPG'), fps, (width, height))
+        st_frame = st.empty()
 
         # TODO: fix this bug, still can't play video
-        while success:
+        while cap.isOpened():
             success, frame = cap.read()
 
             if success:
-                results = model.track(frame, persist=True)
-                # plot result
-                frame_ = results[0].plot()
+                helper.display_single_frame(conf=model_confidence_threshold, model=model, st_frame=st_frame, frame=frame)
 
-                # visualization
-                # cv2.imshow('frame', frame_)
-                video.write(frame_)
+            else:
+                cap.release()
+                break
 
-                if cv2.waitKey(25):
-                    break
-        video.release()
-
-        st.video(video)
-
-
-    
 elif file_types == 'Webcam':
-    print("Chose Webcam")
+    st.title("Webcam Live Feed")
+    run = st.checkbox('Run')
+    FRAME_WINDOW = st.image([])
+    camera = cv2.VideoCapture(0)
+
+    while run:
+        _, frame = camera.read()
+        
+        results = model.track(frame, conf=model_confidence_threshold, persist=True)
+        frame_bgr = results[0].plot()
+        frame_rgb = Image.fromarray(frame_bgr[..., ::-1])
+
+        # visualization
+        frame = cv2.cvtColor(results[0].plot(), cv2.COLOR_BGR2RGB)
+        FRAME_WINDOW.image(frame)
+    else:
+        st.write('Stopped')
+        print("Chose Webcam")
 
 elif file_types == 'Youtube':
-    print("Chose Youtube")
+    print("Youtube")
+    url = st.text_input('URL link')
 
+    if url != '':
+        preds = model.predict(source=url, stream=True)
+        st.write(preds)
+        yt = YouTube(url)
+        stream = yt.streams.filter(file_extension="mp4", res=720).first()
+        vid_cap = cv2.VideoCapture(stream.url)
 
+        st_frame = st.empty()
+        while (vid_cap.isOpened()):
+            success, image = vid_cap.read()
+            if success:
+                helper.display_single_frame(conf=model_confidence_threshold,
+                                         model=model,
+                                         st_frame=st_frame,
+                                         frame=image,
+                                         )
+            else:
+                vid_cap.release()
+                break
+        """
+        yt = YouTube(url)
+        
+        stream = yt.streams.filter(file_extension='mp4', res=720).first()
+        cap = cv2.VideoCapture(stream.url)
+
+        success = True
+
+        st_frame = st.empty()
+
+        while cap.isOpened():
+            success, frame = cap.read()
+
+            if success:
+                helper.display_single_frame(conf=model_confidence_threshold, model=model, st_frame=st_frame, frame=frame)
+
+            else:
+                cap.release()
+                break
+
+        """

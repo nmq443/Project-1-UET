@@ -18,4 +18,11 @@ def image_object_detection(image, conf, model):
             caption='Predicted image'
         )
 
+def display_single_frame(model, conf, st_frame, frame): 
+    results = model.track(frame, conf=conf, persist=True)
+    frame_bgr = results[0].plot()
+    frame_rgb = Image.fromarray(frame_bgr[..., ::-1])
+
+    # visualization
+    st_frame.image(frame_rgb)
 
