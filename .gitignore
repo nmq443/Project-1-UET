@@ -1,1 +1,3 @@
 vehicles-coco-dataset/*
+model/*
+.ipynb_checkpoints/*
