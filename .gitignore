@@ -1,3 +1,4 @@
 vehicles-coco-dataset/*
 model/yolov8*
 .ipynb_checkpoints/*
+test/*
