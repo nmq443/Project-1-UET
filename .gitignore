@@ -1,4 +1,5 @@
 vehicles-coco-dataset/*
+run-on-webapp/__pycahe__/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

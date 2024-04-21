@@ -38,7 +38,7 @@ with st.sidebar:
         format='%.2f'
     ) / 100
 
-    detect = st.button(
+    perform_task_button = st.button(
         label='Perform task',
         use_container_width=True
     )
@@ -47,13 +47,18 @@ with st.sidebar:
 # Input data
 source_img, source_video = None, None
 
-# Load model
+# Setting detection OR segmentation task 
 if model_task == 'Detection':
     model_path = settings.DETECTION
 elif model_task == 'Segmentation':
     model_path = settings.SEGMENTATION
 
-model = YOLO(model_path)
+# Load model
+try:
+    model = YOLO(model_path)
+except Exception as ex:
+    st.error(f"Unable to load model. Check the specified path: {model_path}")
+    st.error(ex)
 
 # Check source's file type?
 if file_types == 'Image':
@@ -62,39 +67,40 @@ if file_types == 'Image':
         label='Upload your image here: ',
         type=['png', 'jpg'],
     )
+    # Split page into 2 cols
+    col1, col2 = st.columns(2)
 
-    if source_img == None:
-        default_img = settings.DEFAULT_IMAGE
-        results = model.predict(default_img, conf=model_confidence_threshold)
+    with col1:
+        try:
+            if source_img == None:
+                default_img = settings.DEFAULT_IMAGE
+                results = model.predict(default_img, conf=model_confidence_threshold)
+                
+                st.image(
+                    image=default_img,
+                    caption='Raw image'
+                )
+            else:
+                uploaded_img = Image.open(source_img)
+                results = model.predict(uploaded_img, conf=model_confidence_threshold)
+                st.image(
+                    image=uploaded_img,
+                    caption='Raw image'
+                )
+        except Exception as ex:
+            st.error("Error occurred while opening the image.")
+            st.error(ex)
 
-        # Split page into 2 cols
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.image(
-                image=default_img,
-                caption='Raw image'
-            )
-
-        with col2:
+    with col2:
+        if source_img == None:
             helper.image_object_detection(conf=model_confidence_threshold, image=default_img, model=model)
-    else:
-        uploaded_img = Image.open(source_img)
-        results = model.predict(uploaded_img, conf=model_confidence_threshold)
 
-        # Split page into 2 columns
-        col1, col2 = st.columns(2)
-
-        # Display raw image on col1
-        with col1:
-            st.image(
-                image=uploaded_img,
-                caption='Raw image'
-            )
-        if detect:
-            # Display prediction image on col2
-            with col2:
-                helper.image_object_detection(conf=model_confidence_threshold, image=uploaded_img, model=model)
+        else:
+            if perform_task_button:
+                try:
+                    helper.image_object_detection(conf=model_confidence_threshold, image=uploaded_img, model=model)
+                except Exception as ex:
+                    st.write("No image is uploaded yet!")
 
 elif file_types == 'Video':
     # Video uploader
@@ -103,86 +109,29 @@ elif file_types == 'Video':
     )
 
     if source_video != None:
-        temp_file = tempfile.NamedTemporaryFile(delete=False)
-        temp_file.write(source_video.read())
-        cap = cv2.VideoCapture(temp_file.name)
+        if perform_task_button:
+            temp_file = tempfile.NamedTemporaryFile(delete=False)
+            temp_file.write(source_video.read())
+            video_src = temp_file.name
 
-        success = True
-
-        st_frame = st.empty()
-
-        # TODO: fix this bug, still can't play video
-        while cap.isOpened():
-            success, frame = cap.read()
-
-            if success:
-                helper.display_single_frame(conf=model_confidence_threshold, model=model, st_frame=st_frame, frame=frame)
-
-            else:
-                cap.release()
-                break
+            helper.realtime_object_detection(
+                    conf=model_confidence_threshold,
+                    model=model,
+                    video_src=video_src
+            )
 
 elif file_types == 'Webcam':
     st.title("Webcam Live Feed")
-    run = st.checkbox('Run')
-    FRAME_WINDOW = st.image([])
-    camera = cv2.VideoCapture(0)
-
-    while run:
-        _, frame = camera.read()
-        
-        results = model.track(frame, conf=model_confidence_threshold, persist=True)
-        frame_bgr = results[0].plot()
-        frame_rgb = Image.fromarray(frame_bgr[..., ::-1])
-
-        # visualization
-        frame = cv2.cvtColor(results[0].plot(), cv2.COLOR_BGR2RGB)
-        FRAME_WINDOW.image(frame)
-    else:
-        st.write('Stopped')
-        print("Chose Webcam")
+    helper.webcam_object_detection(
+        conf=model_confidence_threshold,
+        model=model,
+    )
 
 elif file_types == 'Youtube':
-    print("Youtube")
     url = st.text_input('URL link')
-
-    if url != '':
-        preds = model.predict(source=url, stream=True)
-        st.write(preds)
-        yt = YouTube(url)
-        stream = yt.streams.filter(file_extension="mp4", res=720).first()
-        vid_cap = cv2.VideoCapture(stream.url)
-
-        st_frame = st.empty()
-        while (vid_cap.isOpened()):
-            success, image = vid_cap.read()
-            if success:
-                helper.display_single_frame(conf=model_confidence_threshold,
-                                         model=model,
-                                         st_frame=st_frame,
-                                         frame=image,
-                                         )
-            else:
-                vid_cap.release()
-                break
-        """
-        yt = YouTube(url)
-        
-        stream = yt.streams.filter(file_extension='mp4', res=720).first()
-        cap = cv2.VideoCapture(stream.url)
-
-        success = True
-
-        st_frame = st.empty()
-
-        while cap.isOpened():
-            success, frame = cap.read()
-
-            if success:
-                helper.display_single_frame(conf=model_confidence_threshold, model=model, st_frame=st_frame, frame=frame)
-
-            else:
-                cap.release()
-                break
-
-        """
+    if perform_task_button:
+        helper.youtube_video_object_detection(
+            conf=model_confidence_threshold,
+            model=model,
+            url=url
+        )
