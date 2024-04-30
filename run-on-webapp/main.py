@@ -107,6 +107,7 @@ elif file_types == 'Video':
     source_video = st.sidebar.file_uploader(
         label='Upload your video here: ',
     )
+    is_tracking, tracker_type = helper.display_tracking_options()
 
     if source_video != None:
         if perform_task_button:
