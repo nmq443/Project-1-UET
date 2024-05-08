@@ -9,6 +9,7 @@ import pytube
 from pytube import YouTube
 
 model_path = '../model/vehicles.pt'
+default_model_path = '../model/yolov8n.pt'
 
 # Title of main page
 st.title('Object Detection and Tracking using YOLOv8')
@@ -60,6 +61,8 @@ except Exception as ex:
     st.error(f"Unable to load model. Check the specified path: {model_path}")
     st.error(ex)
 
+default_model = YOLO(default_model_path)
+
 # Check source's file type?
 if file_types == 'Image':
     # Image uploader
@@ -74,7 +77,7 @@ if file_types == 'Image':
         try:
             if source_img == None:
                 default_img = settings.DEFAULT_IMAGE
-                results = model.predict(default_img, conf=model_confidence_threshold)
+                results = default_model.predict(default_img, conf=model_confidence_threshold)
                 
                 st.image(
                     image=default_img,
@@ -110,29 +113,54 @@ elif file_types == 'Video':
     is_tracking, tracker_type = helper.display_tracking_options()
 
     if source_video != None:
-        if perform_task_button:
-            temp_file = tempfile.NamedTemporaryFile(delete=False)
-            temp_file.write(source_video.read())
-            video_src = temp_file.name
+        if is_tracking:
+            if perform_task_button:
+                temp_file = tempfile.NamedTemporaryFile(delete=False)
+                temp_file.write(source_video.read())
+                video_src = temp_file.name
 
-            helper.realtime_object_detection(
-                    conf=model_confidence_threshold,
-                    model=model,
-                    video_src=video_src
-            )
+                helper.realtime_object_detection(
+                        conf=model_confidence_threshold,
+                        model=model,
+                        video_src=video_src,
+                        tracker=tracker_type
+                )
+        else:
+            if perform_task_button:
+                temp_file = tempfile.NamedTemporaryFile(delete=False)
+                temp_file.write(source_video.read())
+                video_src = temp_file.name
+
+                helper.realtime_object_detection(
+                        conf=model_confidence_threshold,
+                        model=model,
+                        video_src=video_src
+                )
 
 elif file_types == 'Webcam':
     st.title("Webcam Live Feed")
     helper.webcam_object_detection(
         conf=model_confidence_threshold,
-        model=model,
+        model=model
     )
 
 elif file_types == 'Youtube':
     url = st.text_input('URL link')
-    if perform_task_button:
-        helper.youtube_video_object_detection(
-            conf=model_confidence_threshold,
-            model=model,
-            url=url
-        )
+    is_tracking, tracker_type = helper.display_tracking_options()
+
+    if is_tracking:
+        if perform_task_button:
+            helper.youtube_video_object_detection(
+                conf=model_confidence_threshold,
+                model=model,
+                url=url,
+                tracker=tracker_type
+            )
+        
+    else:
+        if perform_task_button:
+            helper.youtube_video_object_detection(
+                conf=model_confidence_threshold,
+                model=model,
+                url=url
+            )

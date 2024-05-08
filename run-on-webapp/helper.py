@@ -9,7 +9,6 @@ def display_tracking_options():
     Tracking options, Yes if user want to display tracking on video, No o.w
 
     Args:
-    None
 
     Returns:
     is_tracking (bool): tracking or not
@@ -69,7 +68,7 @@ def display_single_frame(model, conf, st_frame, frame, is_tracking=False, tracke
     # visualization
     st_frame.image(frame_rgb)
 
-def realtime_object_detection(video_src, conf, model):
+def realtime_object_detection(video_src, conf, model, tracker=None):
     """
     Realtime object detection performs on video
 
@@ -77,10 +76,12 @@ def realtime_object_detection(video_src, conf, model):
     - video_src (string): Path to video
     - conf (float): Confidence threshold
     - model (YOLO): YOLOv8 model
+    - tracker (str): tracker type
 
     Returns:
     None
     """
+
     cap = cv2.VideoCapture(video_src)
 
     success = True
@@ -91,7 +92,13 @@ def realtime_object_detection(video_src, conf, model):
         success, frame = cap.read()
 
         if success:
-            display_single_frame(conf=conf, model=model, st_frame=st_frame, frame=frame)
+            display_single_frame(
+                conf=conf, 
+                model=model, 
+                st_frame=st_frame, 
+                frame=frame,
+                tracker=tracker
+            )
 
         else:
             cap.release()
@@ -114,7 +121,7 @@ def webcam_object_detection(model, conf):
     while run:
         _, frame = camera.read()
         
-        results = model.track(frame, conf=model_confidence_threshold, persist=True)
+        results = model.track(frame, conf=conf, persist=True)
         frame_bgr = results[0].plot()
         frame_rgb = Image.fromarray(frame_bgr[..., ::-1])
 
@@ -125,13 +132,14 @@ def webcam_object_detection(model, conf):
         st.write('Stopped')
         print("Chose Webcam")
 
-def youtube_video_object_detection(model, conf, url):
+def youtube_video_object_detection(model, conf, url, tracker=None):
     """
     Object detection on YouTube video
     Parameters:
         model (YOLO): YOLOv8 model
         conf (float): confidence threshold
         url (str): url to YouTube video
+        tracker (str): tracker type
     """
     if url != '':
         preds = model.predict(source=url, stream=True)
@@ -148,6 +156,7 @@ def youtube_video_object_detection(model, conf, url):
                     model=model,
                     st_frame=st_frame,
                     frame=image,
+                    tracker=tracker
                 )
             else:
                 vid_cap.release()
