@@ -8,7 +8,7 @@ import tempfile
 import pytube
 from pytube import YouTube
 
-model_path = '../model/yolov8n.pt'
+model_path = '../model/vehicles.pt'
 
 # Title of main page
 st.title('Object Detection and Tracking using YOLOv8')
