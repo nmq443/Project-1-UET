@@ -4,6 +4,9 @@ from ultralytics import YOLO
 import settings
 import cv2
 import helper
+import tempfile
+import pytube
+from pytube import YouTube
 
 model_path = '../model/yolov8n.pt'
 
@@ -12,14 +15,18 @@ st.title('Object Detection and Tracking using YOLOv8')
 
 # Side bar
 with st.sidebar: 
+    st.header("ML Model config")
+    # Task selection
     model_task = st.radio(
         'Choose a task',
         ('Detection', 'Segmentation')
     )
 
+    st.header("Image/Video data")
+    # Source file type
     file_types = st.radio(
-        'Perform on image or video?',
-        ('Image:receipt:', 'Video:movie_camera:')
+        'Select source?',
+        settings.SOURCES
     )
 
     model_confidence_threshold = st.slider(
@@ -31,74 +38,101 @@ with st.sidebar:
         format='%.2f'
     ) / 100
 
-    detect = st.button(
+    perform_task_button = st.button(
         label='Perform task',
         use_container_width=True
     )
 
+
 # Input data
 source_img, source_video = None, None
 
-# Check file type?
-if file_types == 'Image:receipt:':
-    # Image uploader
-    source_img = st.file_uploader(
-        label='Upload your image here: ',
-        type=['png', 'jpg'],
-    )
-elif file_types == 'Video:movie_camera:':
-    # Video uploader
-    source_video = st.file_uploader(
-        label='Upload your video here: ',
-    )
-
-
-# Load model
+# Setting detection OR segmentation task 
 if model_task == 'Detection':
     model_path = settings.DETECTION
 elif model_task == 'Segmentation':
     model_path = settings.SEGMENTATION
 
-model = YOLO(model_path)
+# Load model
+try:
+    model = YOLO(model_path)
+except Exception as ex:
+    st.error(f"Unable to load model. Check the specified path: {model_path}")
+    st.error(ex)
 
-if detect:
-    if source_img != settings.DEFAULT_IMAGE and source_img != None:
-        uploaded_img = Image.open(source_img)
-        results = model.predict(uploaded_img, conf=model_confidence_threshold)
+# Check source's file type?
+if file_types == 'Image':
+    # Image uploader
+    source_img = st.sidebar.file_uploader(
+        label='Upload your image here: ',
+        type=['png', 'jpg'],
+    )
+    # Split page into 2 cols
+    col1, col2 = st.columns(2)
 
-        # Split page into 2 columns
-        col1, col2 = st.columns(2)
+    with col1:
+        try:
+            if source_img == None:
+                default_img = settings.DEFAULT_IMAGE
+                results = model.predict(default_img, conf=model_confidence_threshold)
+                
+                st.image(
+                    image=default_img,
+                    caption='Raw image'
+                )
+            else:
+                uploaded_img = Image.open(source_img)
+                results = model.predict(uploaded_img, conf=model_confidence_threshold)
+                st.image(
+                    image=uploaded_img,
+                    caption='Raw image'
+                )
+        except Exception as ex:
+            st.error("Error occurred while opening the image.")
+            st.error(ex)
 
-        # Display raw image on col1
-        with col1:
-            st.image(
-                image=uploaded_img,
-                caption='Raw image'
+    with col2:
+        if source_img == None:
+            helper.image_object_detection(conf=model_confidence_threshold, image=default_img, model=model)
+
+        else:
+            if perform_task_button:
+                try:
+                    helper.image_object_detection(conf=model_confidence_threshold, image=uploaded_img, model=model)
+                except Exception as ex:
+                    st.write("No image is uploaded yet!")
+
+elif file_types == 'Video':
+    # Video uploader
+    source_video = st.sidebar.file_uploader(
+        label='Upload your video here: ',
+    )
+    is_tracking, tracker_type = helper.display_tracking_options()
+
+    if source_video != None:
+        if perform_task_button:
+            temp_file = tempfile.NamedTemporaryFile(delete=False)
+            temp_file.write(source_video.read())
+            video_src = temp_file.name
+
+            helper.realtime_object_detection(
+                    conf=model_confidence_threshold,
+                    model=model,
+                    video_src=video_src
             )
 
-        # Display prediction image on col2
-        with col2:
-            for result in results:
-                res_bgr = result.plot()
-                res_rgb = Image.fromarray(res_bgr[..., ::-1] )
-                st.image(
-                    image=res_rgb,
-                    caption='Predicted image'
-                )
-    elif source_video != settings.DEFAULT_VIDEO:
-        uploaded_video = helper.save_uploaded_file(source_video)
-        uploaded_video = cv2.VideoCapture(uploaded_video)
+elif file_types == 'Webcam':
+    st.title("Webcam Live Feed")
+    helper.webcam_object_detection(
+        conf=model_confidence_threshold,
+        model=model,
+    )
 
-        success = True
-        while success:
-            success, frame = uploaded_video.read()
-
-            results = model.track(frame, conf=model_confidence_threshold)
-
-            for result in results:
-                res_bgr = result.plot()
-                res_rgb = Image.fromarray(res_bgr[..., ::-1] )
-                st.image(
-                    image=res_rgb,
-                )
-
+elif file_types == 'Youtube':
+    url = st.text_input('URL link')
+    if perform_task_button:
+        helper.youtube_video_object_detection(
+            conf=model_confidence_threshold,
+            model=model,
+            url=url
+        )
