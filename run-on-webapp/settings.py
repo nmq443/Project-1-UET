@@ -7,9 +7,8 @@ ROOT = '.'
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # Default image 
-# DEFAULT_IMAGE = '../test/dog.jpg'
-DEFAULT_IMAGE = './test/dog.jpg'
-DEFAULT_VIDEO = './test/test_video.mp4'
+DEFAULT_IMAGE = '../test/dog.jpg'
+DEFAULT_VIDEO = '../test/test_video.mp4'
 
 # Model task
 DETECTION = '../model/yolov8n.pt'
